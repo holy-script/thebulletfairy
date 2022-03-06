@@ -17,7 +17,7 @@
   </q-page>
 </template>
 
-	<script>
+<script>
 import store from "../store/index";
 
 export default {
@@ -46,5 +46,5 @@ export default {
 };
 </script>
 
-	<style>
+<style>
 </style>

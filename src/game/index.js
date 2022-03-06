@@ -22,6 +22,18 @@ import cloudBackground from "../assets/bg/nuvens_2.png";
 import cloudForeground from "../assets/bg/nuvens_1.png";
 import rpgExpOgg from "../assets/audio/Explosion 42.ogg";
 import rpgExpMp3 from "../assets/audio/Explosion 42.mp3";
+import bgMusic1Ogg from "../assets/audio/Clement Panchout _ 80s Zombies Movie _ 2018.ogg";
+import bgMusic1Mp3 from "../assets/audio/Clement Panchout _ 80s Zombies Movie _ 2018.mp3";
+import playerShootOgg from "../assets/audio/Explosion 9 (1).ogg";
+import playerShootMp3 from "../assets/audio/Explosion 9 (1).mp3";
+import arShootOgg from "../assets/audio/Explosion 9 (2).ogg";
+import arShootMp3 from "../assets/audio/Explosion 9 (2).mp3";
+import sniperShootOgg from "../assets/audio/Explosion 9 (3).ogg";
+import sniperShootMp3 from "../assets/audio/Explosion 9 (3).mp3";
+import rpgShootOgg from "../assets/audio/Explosion 9.ogg";
+import rpgShootMp3 from "../assets/audio/Explosion 9.mp3";
+import wormShootOgg from "../assets/audio/Random 164.ogg";
+import wormShootMp3 from "../assets/audio/Random 164.mp3";
 
 function launch(containerId, store) {
     class MyGame extends Phaser.Scene {
@@ -82,10 +94,28 @@ function launch(containerId, store) {
             this.load.image("cloudBg", cloudBackground);
             this.load.image("cloudFg", cloudForeground);
             this.load.audio("rpgExplosion", [rpgExpOgg, rpgExpMp3]);
+            this.load.audio("bgMusic1", [bgMusic1Ogg, bgMusic1Mp3]);
+            this.load.audio("playerShoot", [playerShootOgg, playerShootMp3]);
+            this.load.audio("arShoot", [arShootOgg, arShootMp3]);
+            this.load.audio("sniperShoot", [sniperShootOgg, sniperShootMp3]);
+            this.load.audio("rpgShoot", [rpgShootOgg, rpgShootMp3]);
+            this.load.audio("wormShoot", [wormShootOgg, wormShootMp3]);
         }
 
         create() {
+            this.playerHP = 2000;
             this.rpgExplosion = this.sound.add("rpgExplosion");
+            this.bgMusic1 = this.sound.add("bgMusic1");
+            this.bgMusic1.play({
+                mute: false,
+                volume: 0.1,
+                loop: true,
+            });
+            this.playerShoot = this.sound.add("playerShoot");
+            this.arShoot = this.sound.add("arShoot");
+            this.sniperShoot = this.sound.add("sniperShoot");
+            this.rpgShoot = this.sound.add("rpgShoot");
+            this.wormShoot = this.sound.add("wormShoot");
             const cloudWidth = this.textures
                 .get("cloudFg")
                 .getSourceImage().width;
@@ -187,34 +217,39 @@ function launch(containerId, store) {
                 });
 
             const objArray = new Array(this.areas.length);
+            const healths = new Array(this.areas.length);
 
             createEnemies(
                 this,
                 map,
                 "EnemyAR",
                 "badAR", [14, 28, 10, 10, 8, 10],
-                objArray
+                objArray,
+                healths
             );
             createEnemies(
                 this,
                 map,
                 "EnemyRPG",
                 "badRPG", [16, 25, 15, 19, 13, 19],
-                objArray
+                objArray,
+                healths
             );
             createEnemies(
                 this,
                 map,
                 "EnemySniper",
                 "badSniper", [13, 18, 20, 24, 10, 24],
-                objArray
+                objArray,
+                healths
             );
             createEnemies(
                 this,
                 map,
                 "EnemyMiniBoss",
                 "badWorm", [20, 30, 25, 25, 45, 25],
-                objArray
+                objArray,
+                healths
             );
 
             this.physics.add.collider(hero, ground);
@@ -251,13 +286,19 @@ function launch(containerId, store) {
                                 );
                                 break;
                         }
-                        enemy.play(`${enemy.name}-shoot`, true);
+                        if (enemy.visible) {
+                            enemy.play(`${enemy.name}-shoot`, true);
+                        }
                     }
                 }
             });
             this.enemies.on("gone", (id) => {
                 let enemy = objArray[id];
                 enemy.play(`${enemy.name}-idle`, true);
+            });
+            this.enemies.on("death", (id) => {
+                let enemy = objArray[id];
+                enemy.visible = false;
             });
 
             hero.body.setSize(16, 30);
@@ -272,6 +313,7 @@ function launch(containerId, store) {
                 Phaser.Animations.Events.ANIMATION_COMPLETE_KEY + "die",
                 () => {
                     this.scene.pause();
+                    alert("Game Over!\nPlease refresh page to try again.");
                 }
             );
             hero.on("shooting", () => {
@@ -285,6 +327,9 @@ function launch(containerId, store) {
                     )
                     .setScale(2)
                     .setVelocityX(hero.flipX ? -700 : 700);
+                this.playerShoot.play({
+                    volume: 0.3,
+                });
                 bullet.flipX = hero.flipX ? true : false;
                 bullet.body.allowGravity = false;
                 bullet.body.setSize(7, 3);
@@ -294,8 +339,9 @@ function launch(containerId, store) {
                 this.physics.add.collider(bullet, ground, (obj) => {
                     obj.destroy();
                 });
-                this.physics.add.overlap(bullet, this.enemies, (obj) => {
-                    obj.destroy();
+                this.physics.add.overlap(bullet, this.enemies, (obj, enemy) => {
+                    healths[enemy.data] -= 350;
+                    if (enemy.visible) obj.destroy();
                 });
             });
 
@@ -315,6 +361,7 @@ function launch(containerId, store) {
             this.engaged = -1;
             this.objArray = objArray;
             this.hero = hero;
+            this.healthArray = healths;
         }
 
         async watchAreas(areas, x, y) {
@@ -323,9 +370,19 @@ function launch(containerId, store) {
                 else this.enemies.emit("gone", area[0]);
             }
         }
+        async watchHealths(enemies, healths) {
+            for (let enemy of enemies) {
+                if (healths[enemy.data] <= 0) {
+                    console.log(enemy.data);
+                    console.log(healths);
+                    this.enemies.emit("death", enemy.data);
+                }
+            }
+        }
 
         update(time, delta) {
             this.watchAreas(this.areas, this.player.x, this.player.y);
+            this.watchHealths(this.objArray, this.healthArray);
             if (!store.state.paused) {
                 bulletTime(this, this.cursors.shift.isDown);
                 const onGround = this.player.body.blocked.down;
@@ -342,6 +399,8 @@ function launch(containerId, store) {
                 const speed = onGround ? 275 : 200;
 
                 this.player.setVelocityX(0);
+
+                this.isDead = this.playerHP <= 0;
 
                 const isDrowning =
                     this.player.x >= this.waterArea.x * 2 &&
@@ -389,6 +448,8 @@ function launch(containerId, store) {
                         }
                         this.player.body.checkCollision.up = true;
                     }
+                } else {
+                    this.player.play("die", true);
                 }
 
                 let frame = this.player.anims.currentFrame.frame.name;
@@ -426,7 +487,27 @@ function launch(containerId, store) {
                 // }
             } else {
                 this.player.stop();
+                for (enemy of this.enemies) {
+                    enemy.stop();
+                }
             }
+        }
+    }
+
+    class TitleScreen extends Phaser.Scene {
+        constructor() {
+            super({
+                key: "Title",
+            });
+        }
+        create() {
+            // store.commit("Title");
+            this.scene.start("MyGame");
+        }
+        update() {
+            // if (store.state.start == true) {
+            //     this.scene.start("MyGame");
+            // }
         }
     }
 
@@ -435,7 +516,7 @@ function launch(containerId, store) {
         parent: containerId,
         width: window.innerWidth,
         height: window.innerHeight,
-        scene: MyGame,
+        scene: [TitleScreen, MyGame],
         pixelArt: true,
         physics: {
             default: "arcade",

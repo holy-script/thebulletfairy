@@ -181,7 +181,15 @@ const createEnemyAnimations = (ctx) => {
         repeat: 0,
     });
 };
-const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
+const createEnemies = (
+    ctx,
+    map,
+    mapKey,
+    spriteKey,
+    bodyMeasures,
+    arr,
+    healths
+) => {
     map.filterObjects("Spawns", (obj) => obj.name === mapKey).forEach(
         (enemy) => {
             let isFlipped = enemy.properties[1].value;
@@ -191,6 +199,7 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                 .setScale(2)
                 .setMaxVelocity(275);
             enemy.flipX = isFlipped;
+            enemy.data = id;
             ctx.physics.add.collider(enemy, ctx.ground);
             enemy.body.setSize(bodyMeasures[0], bodyMeasures[1]);
             enemy.body.setOffset(
@@ -205,6 +214,9 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                 `${animKey}-die`,
                 () => {
                     console.log(`${animKey.toUpperCase()} dead!`);
+                    ctx.time.delayedCall(1000, () => {
+                        enemy.destory();
+                    });
                 }
             );
             enemy.on(Phaser.Animations.Events.ANIMATION_START, (anim) => {
@@ -226,6 +238,9 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                                 enemy.flipX ? 15 : 16,
                                 enemy.flipX ? 15 : 15
                             );
+                            ctx.arShoot.play({
+                                volume: 0.3,
+                            });
                             break;
                         case "sniper":
                             bullet.body.setSize(7, 3);
@@ -233,6 +248,9 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                                 enemy.flipX ? 23 : 15,
                                 enemy.flipX ? 22 : 22
                             );
+                            ctx.sniperShoot.play({
+                                volume: 0.3,
+                            });
                             break;
                         case "rpg":
                             bullet.body.allowGravity = true;
@@ -251,6 +269,9 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                                 enemy.flipX ? 19 : 19,
                                 enemy.flipX ? 22 : 22
                             );
+                            ctx.rpgShoot.play({
+                                volume: 0.3,
+                            });
                     }
                     bullet.body.collideWorldBounds = true;
                     bullet.body.onWorldBounds = true;
@@ -260,9 +281,17 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                         obj.destroy();
                     });
                     ctx.physics.add.overlap(bullet, ctx.hero, (obj) => {
-                        if (enemy.name == "rpg")
+                        ctx.playerHP -= 100;
+                        if (enemy.name == "rpg") {
+                            ctx.playerHP -= 200;
                             ctx.createExplosion(ctx, obj, enemy.name);
+                        }
                         obj.destroy();
+                    });
+                }
+                if (anim.key == "worm-shoot") {
+                    ctx.wormShoot.play({
+                        volume: 0.3,
                     });
                 }
             });
@@ -289,6 +318,7 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                         obj.destroy();
                     });
                     ctx.physics.add.overlap(bullet, ctx.hero, (obj) => {
+                        ctx.playerHP -= 200;
                         ctx.createExplosion(ctx, obj, enemy.name);
                         obj.destroy();
                     });
@@ -315,17 +345,22 @@ const createEnemies = (ctx, map, mapKey, spriteKey, bodyMeasures, arr) => {
                     bullet.setVelocityX(bullet.flipX ? -bombSpeed : bombSpeed);
                     bullet.body.collideWorldBounds = true;
                     bullet.body.onWorldBounds = true;
+                    ctx.rpgShoot.play({
+                        volume: 0.3,
+                    });
                     ctx.physics.add.collider(bullet, ctx.ground, (obj) => {
                         ctx.createExplosion(ctx, obj, enemy.name);
                         obj.destroy();
                     });
                     ctx.physics.add.overlap(bullet, ctx.hero, (obj) => {
+                        ctx.playerHP -= 200;
                         ctx.createExplosion(ctx, obj, enemy.name);
                         obj.destroy();
                     });
                 }
             });
             arr[id] = enemy;
+            healths[id] = 1000;
         }
     );
 };
